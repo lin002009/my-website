@@ -1396,7 +1396,7 @@ function buildSummary(key) {
   let grand=0;
 
   // ── Copy text: item aggregation only + grand total ──
-  let text = `🧾 團購品項彙整 ${dateStr}\n══════════════════\n`;
+  let text = `🧾 品項彙整 ${dateStr}\n══════════════\n`;
   Object.entries(grouped).forEach(([shop,ords])=>{
     const st=ords.reduce((a,b)=>a+b.total,0); grand+=st;
     const itemMap={};
@@ -1405,13 +1405,13 @@ function buildSummary(key) {
       if(!itemMap[k]) itemMap[k]={name:i.name,note:i.note||'',qty:0,price:i.price};
       itemMap[k].qty+=i.qty;
     }));
-    text+=`\n▌${shop}（${ords.length} 人）\n`;
+    text+=`\n${shop}\n`;
     Object.values(itemMap).forEach(it=>{
       const ns=it.note?`（${it.note}）`:'';
       text+=`  ${it.name}${ns} × ${it.qty}　＄${it.price*it.qty}\n`;
     });
   });
-  text+=`\n══════════════════\n總計：＄${grand}　共 ${orders.length} 人`;
+  text+=`\n══════════════\n總計：＄${grand}　`;
 
   // ── HTML preview: shop header (date left, name right) + items + grand total ──
   let html='';
