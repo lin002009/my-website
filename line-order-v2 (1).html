@@ -1,0 +1,1536 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>團購點餐</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --green:#00B900;--green-dk:#009900;--green-lt:#E8F8E8;--green-md:#9FE1CB;
+  --text:#1a1a1a;--sub:#666;--hint:#999;
+  --bg:#f2f3f5;--surf:#fff;
+  --bdr:rgba(0,0,0,0.09);--bdr-md:rgba(0,0,0,0.16);
+  --r:14px;--r-sm:8px;
+  --font:'Noto Sans TC','PingFang TC','Microsoft JhengHei',sans-serif;
+}
+html,body{height:100%;background:var(--bg);font-family:var(--font);color:var(--text);font-size:15px;}
+button,input,textarea,select{font-family:var(--font);}
+button{cursor:pointer;}
+*{-webkit-tap-highlight-color:transparent;}
+
+/* ── Shell ── */
+#app{max-width:480px;margin:0 auto;min-height:100vh;background:var(--bg);}
+.screen{display:none;flex-direction:column;min-height:100vh;animation:fi .18s ease;}
+.screen.active{display:flex;}
+@keyframes fi{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+
+/* ── Header ── */
+.hdr{background:var(--green);color:#fff;padding:14px 16px;display:flex;align-items:center;gap:10px;
+  position:sticky;top:0;z-index:20;box-shadow:0 2px 8px rgba(0,185,0,.22);flex-shrink:0;}
+.hdr h1{font-size:16px;font-weight:600;flex:1;letter-spacing:.3px;}
+.hdr-back{background:none;border:none;color:#fff;font-size:22px;padding:0 4px;line-height:1;}
+.hdr-pill{background:rgba(255,255,255,.2);border-radius:20px;padding:3px 10px;font-size:12px;font-weight:500;}
+.hdr-btn{background:rgba(255,255,255,.18);border:none;color:#fff;font-size:12px;padding:5px 11px;border-radius:20px;font-weight:500;}
+
+/* ── Date tabs (member) ── */
+.date-strip{display:flex;background:var(--surf);border-bottom:1px solid var(--bdr);
+  overflow-x:auto;flex-shrink:0;scrollbar-width:none;position:sticky;top:56px;z-index:19;}
+.date-strip::-webkit-scrollbar{display:none;}
+.date-tab{flex:none;padding:10px 16px;text-align:center;cursor:pointer;border-bottom:2.5px solid transparent;
+  transition:all .15s;min-width:72px;}
+.date-tab .dt-day{font-size:12px;color:var(--sub);font-weight:500;}
+.date-tab .dt-date{font-size:15px;font-weight:700;color:var(--text);}
+.date-tab .dt-dot{width:5px;height:5px;border-radius:50%;background:transparent;margin:3px auto 0;}
+.date-tab.active{border-bottom-color:var(--green);}
+.date-tab.active .dt-day,.date-tab.active .dt-date{color:var(--green);}
+.date-tab.has-order .dt-dot{background:var(--green);}
+.date-tab.today .dt-date{color:var(--text);}
+
+/* ── Scroll body ── */
+.scroll{flex:1;overflow-y:auto;padding:14px 14px 86px;}
+.scroll.nb{padding-bottom:14px;}
+
+/* ── Bottom bar ── */
+.bbar{position:sticky;bottom:0;padding:10px 14px 16px;background:var(--surf);
+  border-top:1px solid var(--bdr);display:flex;flex-direction:column;gap:7px;flex-shrink:0;}
+.bbar.ghost{background:transparent;border:none;}
+
+/* ── Buttons ── */
+.btn{display:flex;align-items:center;justify-content:center;gap:6px;
+  padding:13px 16px;border-radius:var(--r-sm);font-size:15px;font-weight:600;
+  border:none;transition:all .15s;}
+.btn:active{transform:scale(.97);}
+.btn-g{background:var(--green);color:#fff;}
+.btn-g:hover{background:var(--green-dk);}
+.btn-g:disabled{background:#ccc;color:#fff;cursor:default;transform:none;}
+.btn-o{background:transparent;color:var(--text);border:1px solid var(--bdr-md);font-weight:500;}
+.btn-o:hover{background:#f0f0f0;}
+.btn-d{background:#fee;color:#c00;border:1px solid #fcc;font-weight:500;}
+.btn-sm{padding:7px 12px;font-size:13px;font-weight:500;border-radius:var(--r-sm);}
+
+/* ── Cards ── */
+.slbl{font-size:11px;color:var(--hint);font-weight:700;letter-spacing:.9px;text-transform:uppercase;margin:16px 0 7px;}
+.slbl:first-child{margin-top:0;}
+.card{background:var(--surf);border-radius:var(--r);border:1px solid var(--bdr);overflow:hidden;margin-bottom:10px;}
+.cb{padding:14px;}
+
+/* ── Profile card ── */
+.pcard{background:linear-gradient(135deg,var(--green) 0%,#009a00 100%);border-radius:var(--r);
+  padding:15px;color:#fff;display:flex;align-items:center;gap:12px;margin-bottom:12px;
+  box-shadow:0 4px 14px rgba(0,185,0,.28);}
+.ava{width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.25);
+  display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:700;
+  flex-shrink:0;overflow:hidden;}
+.ava img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
+.pcard-info p{font-size:15px;font-weight:700;}
+.pcard-info span{font-size:12px;opacity:.8;}
+
+/* ── Shop list ── */
+.shop-row{display:flex;align-items:center;padding:13px 14px;gap:12px;
+  border-bottom:1px solid var(--bdr);cursor:pointer;transition:background .12s;}
+.shop-row:last-child{border-bottom:none;}
+.shop-row:active{background:#f9f9f9;}
+.sh-icon{width:40px;height:40px;border-radius:10px;background:var(--green-lt);
+  display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0;}
+.sh-name{font-size:14px;font-weight:600;}
+.sh-meta{font-size:12px;color:var(--sub);margin-top:2px;}
+.sh-tag{font-size:11px;background:var(--green-lt);color:#0F6E56;padding:2px 8px;border-radius:10px;font-weight:500;}
+.chev{color:var(--bdr-md);font-size:18px;margin-left:auto;}
+
+/* ── Deadline bar ── */
+.dl-bar{background:#fff8e1;border:1px solid #ffe082;border-radius:var(--r-sm);
+  padding:8px 12px;display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:13px;}
+.dl-bar.closed{background:#fee;border-color:#fcc;}
+.dl-bar .dl-txt{color:#664d00;font-weight:500;flex:1;}
+.dl-bar.closed .dl-txt{color:#900;}
+
+/* ── Menu ── */
+.mitem{display:flex;align-items:center;padding:12px 14px;gap:11px;border-bottom:1px solid var(--bdr);}
+.mitem:last-child{border-bottom:none;}
+.mitem-name{font-size:14px;font-weight:500;flex:1;}
+.mprice{font-size:14px;font-weight:600;color:var(--green);min-width:44px;text-align:right;}
+.qty-ctrl{display:flex;align-items:center;gap:7px;}
+.qbtn{width:30px;height:30px;border-radius:50%;border:1.5px solid var(--bdr-md);
+  background:var(--surf);font-size:17px;display:flex;align-items:center;justify-content:center;
+  transition:all .1s;color:var(--text);}
+.qbtn.p{border-color:var(--green);color:var(--green);}
+.qbtn.p.hq{background:var(--green);color:#fff;}
+.qnum{font-size:15px;font-weight:600;min-width:18px;text-align:center;}
+
+/* ── Cart bar ── */
+.cart-bar{background:var(--green);border-radius:var(--r-sm);padding:12px 16px;
+  display:flex;align-items:center;justify-content:space-between;cursor:pointer;}
+.cart-bar p{font-size:15px;font-weight:600;color:#fff;}
+.cart-bar span{font-size:12px;color:rgba(255,255,255,.8);}
+
+/* ── Confirm ── */
+.orow{display:flex;justify-content:space-between;align-items:center;
+  padding:8px 0;border-bottom:1px solid var(--bdr);font-size:14px;}
+.orow:last-child{border-bottom:none;}
+.ototal{display:flex;justify-content:space-between;align-items:center;
+  padding:10px 0 0;font-size:16px;font-weight:700;}
+
+/* ── Admin tab bar ── */
+.tabbar{display:flex;background:var(--surf);border-bottom:1px solid var(--bdr);
+  flex-shrink:0;position:sticky;top:56px;z-index:19;}
+.atab{flex:1;padding:11px 4px;text-align:center;font-size:13px;color:var(--sub);
+  border-bottom:2.5px solid transparent;cursor:pointer;font-weight:500;transition:all .15s;}
+.atab.active{color:var(--green);border-bottom-color:var(--green);}
+
+/* ── Admin date selector ── */
+.addate-strip{display:flex;gap:6px;overflow-x:auto;padding:12px 14px 0;
+  scrollbar-width:none;flex-shrink:0;}
+.addate-strip::-webkit-scrollbar{display:none;}
+.addate-pill{flex:none;padding:7px 14px;border-radius:20px;border:1px solid var(--bdr-md);
+  background:var(--surf);font-size:13px;font-weight:500;color:var(--sub);cursor:pointer;transition:all .15s;}
+.addate-pill.active{background:var(--green);color:#fff;border-color:var(--green);}
+.addate-pill .pill-cnt{font-size:10px;margin-left:4px;background:rgba(255,255,255,.3);
+  padding:1px 5px;border-radius:8px;}
+.addate-pill:not(.active) .pill-cnt{background:var(--green-lt);color:#0F6E56;}
+
+/* ── Order list (admin) ── */
+.ogroup{margin-bottom:14px;}
+.ogrp-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;}
+.ogrp-hdr h3{font-size:14px;font-weight:700;}
+.cnt-badge{background:var(--green-lt);color:#0F6E56;font-size:11px;padding:2px 8px;border-radius:10px;font-weight:600;}
+.prow{display:flex;align-items:flex-start;gap:9px;padding:9px 0;border-bottom:1px solid var(--bdr);}
+.prow:last-of-type{border-bottom:none;}
+.p-ava{width:29px;height:29px;border-radius:50%;background:#e8f0fe;color:#185FA5;
+  font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;}
+.p-nm{font-size:13px;font-weight:600;}
+.p-its{font-size:12px;color:var(--sub);margin-top:2px;}
+.p-note{font-size:11px;color:#c77;margin-top:2px;}
+.p-prc{font-size:13px;font-weight:600;color:var(--green);margin-left:auto;white-space:nowrap;}
+.sub-row{background:var(--green-lt);border-radius:var(--r-sm);padding:7px 12px;
+  display:flex;justify-content:space-between;margin-top:5px;}
+.sub-row span{font-size:13px;color:#0F6E56;}
+.sub-row strong{font-size:14px;color:#0F6E56;font-weight:700;}
+
+/* ── Fields ── */
+.fld{margin-bottom:13px;}
+.fld label{display:block;font-size:11px;color:var(--sub);font-weight:700;
+  margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px;}
+.fld input,.fld textarea,.fld select{width:100%;padding:10px 12px;
+  border:1px solid var(--bdr-md);border-radius:var(--r-sm);font-size:14px;
+  background:var(--surf);color:var(--text);outline:none;transition:border-color .15s;}
+.fld input:focus,.fld textarea:focus{border-color:var(--green);}
+.fld textarea{resize:none;}
+
+/* ── Toggle tags ── */
+.tgrp{display:flex;flex-wrap:wrap;gap:7px;margin:6px 0 13px;}
+.ttag{padding:6px 14px;border-radius:20px;font-size:13px;border:1px solid var(--bdr-md);
+  background:var(--surf);color:var(--sub);cursor:pointer;transition:all .15s;font-weight:500;}
+.ttag.on{background:var(--green-lt);color:#0F6E56;border-color:var(--green-md);font-weight:600;}
+
+/* ── Copy box ── */
+.cbox{background:#f8f8f8;border:1px solid var(--bdr);border-radius:var(--r-sm);
+  padding:14px;font-size:13px;white-space:pre-wrap;line-height:1.75;
+  font-family:'Courier New',monospace;word-break:break-all;color:var(--text);}
+
+/* ── Success ── */
+.succ-wrap{display:flex;flex-direction:column;align-items:center;padding:36px 24px 24px;text-align:center;}
+.succ-ring{width:70px;height:70px;border-radius:50%;background:var(--green-lt);
+  display:flex;align-items:center;justify-content:center;margin-bottom:14px;}
+
+/* ── Misc ── */
+.empty{text-align:center;padding:44px 24px;color:var(--hint);}
+.empty .ei{font-size:36px;margin-bottom:9px;}
+.notice{font-size:12px;color:var(--hint);text-align:center;padding:6px 0;}
+.row2{display:flex;gap:8px;}
+.row2 .fld{flex:1;}
+.ierow{display:flex;gap:6px;margin-bottom:6px;align-items:center;}
+.rmbtn{background:none;border:none;color:#c00;font-size:18px;padding:0 3px;flex-shrink:0;}
+.loading{display:flex;align-items:center;justify-content:center;min-height:100vh;}
+.spin{width:28px;height:28px;border:3px solid var(--bdr);border-top-color:var(--green);
+  border-radius:50%;animation:sp .7s linear infinite;}
+@keyframes sp{to{transform:rotate(360deg)}}
+.toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(16px);
+  background:#333;color:#fff;padding:10px 20px;border-radius:20px;font-size:14px;
+  opacity:0;transition:all .22s;pointer-events:none;z-index:999;white-space:nowrap;}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+/* ── Date config rows ── */
+.dcfg-row{background:var(--surf);border:1px solid var(--bdr);border-radius:var(--r);
+  padding:13px 14px;margin-bottom:8px;}
+.dcfg-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.dcfg-hdr .dc-date{font-size:14px;font-weight:700;}
+.dcfg-hdr .dc-badge{font-size:11px;background:#e8f0fe;color:#185FA5;padding:2px 8px;border-radius:10px;}
+.dcfg-hdr .dc-badge.today{background:var(--green-lt);color:#0F6E56;}
+
+/* ── Name Entry Screen ── */
+.name-entry-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;
+  min-height:100vh;padding:32px 24px;text-align:center;background:var(--bg);}
+.name-entry-logo{width:72px;height:72px;border-radius:20px;background:var(--green);
+  display:flex;align-items:center;justify-content:center;margin:0 auto 20px;
+  box-shadow:0 6px 20px rgba(0,185,0,.35);}
+.name-entry-logo svg{width:36px;height:36px;}
+.name-entry-title{font-size:22px;font-weight:800;color:var(--text);margin-bottom:6px;}
+.name-entry-sub{font-size:14px;color:var(--sub);margin-bottom:32px;line-height:1.5;}
+.name-entry-card{background:var(--surf);border-radius:var(--r);border:1px solid var(--bdr);
+  padding:22px;width:100%;max-width:360px;text-align:left;}
+.name-entry-card label{display:block;font-size:11px;color:var(--sub);font-weight:700;
+  letter-spacing:.8px;text-transform:uppercase;margin-bottom:6px;}
+.name-entry-card input{width:100%;padding:12px 14px;border:1.5px solid var(--bdr-md);
+  border-radius:var(--r-sm);font-size:16px;font-family:var(--font);outline:none;
+  transition:border-color .15s;background:var(--surf);color:var(--text);}
+.name-entry-card input:focus{border-color:var(--green);}
+.name-entry-hint{font-size:12px;color:var(--hint);margin-top:8px;line-height:1.6;}
+.name-entry-btn{width:100%;margin-top:16px;padding:14px;background:var(--green);
+  color:#fff;border:none;border-radius:var(--r-sm);font-size:16px;font-weight:700;
+  font-family:var(--font);cursor:pointer;transition:background .15s;}
+.name-entry-btn:hover{background:var(--green-dk);}
+.name-entry-btn:active{transform:scale(.98);}
+
+/* ── Change name button in profile ── */
+.pcard-edit{background:rgba(255,255,255,.18);border:none;color:#fff;font-size:11px;
+  padding:3px 9px;border-radius:12px;cursor:pointer;margin-top:4px;font-family:var(--font);}
+.pcard-edit:hover{background:rgba(255,255,255,.28);}
+
+/* ── Payment status ── */
+.pay-row{display:flex;align-items:center;justify-content:space-between;
+  padding:8px 0;border-top:1px solid var(--bdr);margin-top:6px;}
+.pay-row p{font-size:13px;font-weight:600;}
+.pay-btns{display:flex;gap:6px;}
+.pay-btn{padding:5px 12px;border-radius:20px;font-size:12px;font-weight:600;
+  border:1.5px solid var(--bdr-md);background:var(--surf);color:var(--sub);cursor:pointer;transition:all .15s;}
+.pay-btn.paid{background:#e8f8e8;color:#0a6e3c;border-color:#6dcc8a;}
+.pay-btn.unpaid{background:#fee;color:#c00;border-color:#fca;}
+.change-input{width:80px;padding:5px 8px;border:1.5px solid var(--bdr-md);border-radius:var(--r-sm);
+  font-size:13px;font-family:var(--font);text-align:center;}
+.change-input:focus{outline:none;border-color:var(--green);}
+
+/* ── Item note inline ── */
+.item-note-row{display:flex;align-items:center;gap:6px;margin-top:4px;padding:0 0 4px;}
+.item-note-input{flex:1;padding:5px 9px;border:1px solid var(--bdr-md);border-radius:20px;
+  font-size:12px;color:var(--text);background:#fafafa;font-family:var(--font);outline:none;
+  transition:border-color .15s;}
+.item-note-input:focus{border-color:var(--green);background:#fff;}
+.item-note-input::placeholder{color:var(--hint);}
+
+/* ── AI import panel ── */
+.ai-panel{background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);
+  border-radius:var(--r);padding:16px;margin-bottom:12px;color:#fff;}
+.ai-panel h3{font-size:14px;font-weight:700;margin-bottom:4px;display:flex;align-items:center;gap:6px;}
+.ai-panel p{font-size:12px;opacity:.75;margin-bottom:12px;line-height:1.6;}
+.ai-textarea{width:100%;min-height:90px;padding:10px 12px;border:1px solid rgba(255,255,255,.2);
+  border-radius:var(--r-sm);background:rgba(255,255,255,.08);color:#fff;font-size:13px;
+  font-family:var(--font);resize:none;outline:none;line-height:1.6;}
+.ai-textarea::placeholder{color:rgba(255,255,255,.4);}
+.ai-textarea:focus{border-color:rgba(255,255,255,.5);}
+.ai-btn{padding:9px 18px;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.3);
+  border-radius:var(--r-sm);color:#fff;font-size:13px;font-weight:600;font-family:var(--font);
+  cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:6px;}
+.ai-btn:hover{background:rgba(255,255,255,.28);}
+.ai-btn:disabled{opacity:.5;cursor:default;}
+.ai-spin{width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;
+  border-radius:50%;animation:sp .6s linear infinite;flex-shrink:0;}
+.ai-result-note{font-size:11px;opacity:.65;margin-top:8px;line-height:1.5;}
+
+/* ── Inline toggle switch ── */
+.sw-wrap{display:flex;align-items:center;justify-content:space-between;padding:10px 0;}
+.sw-label p{font-size:14px;font-weight:500;}
+.sw-label span{font-size:12px;color:var(--sub);}
+.sw{position:relative;width:46px;height:25px;flex-shrink:0;}
+.sw input{opacity:0;width:0;height:0;position:absolute;}
+.sw-track{position:absolute;inset:0;background:#ccc;border-radius:25px;transition:.3s;cursor:pointer;}
+.sw-track::after{content:'';position:absolute;width:19px;height:19px;background:#fff;
+  border-radius:50%;bottom:3px;left:3px;transition:.3s;}
+.sw input:checked+.sw-track{background:var(--green);}
+.sw input:checked+.sw-track::after{left:24px;}
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- ══ LOADING ══ -->
+<div class="screen active" id="s-loading">
+  <div class="loading"><div>
+    <div class="spin" style="margin:0 auto 14px;"></div>
+    <p style="text-align:center;color:var(--sub);font-size:14px;">載入中…</p>
+  </div></div>
+</div>
+
+<!-- ══ NAME ENTRY ══ -->
+<div class="screen" id="s-name-entry">
+  <div class="name-entry-wrap">
+    <div class="name-entry-logo">
+      <svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="18" cy="12" r="6" fill="white"/>
+        <path d="M6 30c0-6.627 5.373-12 12-12s12 5.373 12 12" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <h1 class="name-entry-title">歡迎使用團購點餐</h1>
+    <p class="name-entry-sub">請輸入你的姓名<br>訂單將以此名稱顯示給團購主</p>
+    <div class="name-entry-card">
+      <label>你的姓名</label>
+      <input type="text" id="name-input" placeholder="例：陳小明" maxlength="20"
+        onkeydown="if(event.key==='Enter')confirmName()"/>
+      <p class="name-entry-hint">💡 姓名會儲存在裝置上，下次開啟免重新輸入<br>可在首頁隨時更改</p>
+      <button class="name-entry-btn" onclick="confirmName()">開始點餐 →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MEMBER HOME ══ -->
+<div class="screen" id="s-home">
+  <div class="hdr">
+    <h1 id="hdr-title">團購點餐</h1>
+    <button class="hdr-btn" onclick="goTo('s-admin-login')">管理員</button>
+  </div>
+  <div class="date-strip" id="date-strip"></div>
+  <div class="scroll" id="home-scroll">
+    <div class="pcard">
+      <div class="ava" id="home-ava">？</div>
+      <div class="pcard-info" style="flex:1;">
+        <p id="home-uname">載入中…</p>
+        <span id="home-sub">選擇日期與店家開始點餐</span>
+        <div><button class="pcard-edit" onclick="changeName()">✏️ 更改姓名</button></div>
+      </div>
+    </div>
+    <div id="dl-display"></div>
+    <p class="slbl" id="shop-slbl">今日開放</p>
+    <div class="card" id="home-shops">
+      <div class="empty"><div class="ei">🍱</div><p>尚未開放點餐</p></div>
+    </div>
+    <p class="notice">如有問題請聯絡今日團購主</p>
+  </div>
+</div>
+
+<!-- ══ MENU ══ -->
+<div class="screen" id="s-menu">
+  <div class="hdr">
+    <button class="hdr-back" onclick="goTo('s-home')">‹</button>
+    <h1 id="menu-title">選擇餐點</h1>
+    <span class="hdr-pill" id="menu-date-pill"></span>
+  </div>
+  <div class="scroll">
+    <p style="font-size:12px;color:var(--hint);padding:0 2px 8px;">可對各品項填寫備註（去冰、少糖等）</p>
+    <div class="card" id="menu-list"></div>
+  </div>
+  <div class="bbar"><div id="cart-wrap"></div></div>
+</div>
+
+<!-- ══ CONFIRM ══ -->
+<div class="screen" id="s-confirm">
+  <div class="hdr">
+    <button class="hdr-back" onclick="goTo('s-menu')">‹</button>
+    <h1>確認訂單</h1>
+  </div>
+  <div class="scroll">
+    <p class="slbl">訂購日期</p>
+    <div class="card cb" id="confirm-date-info"></div>
+    <p class="slbl">訂購明細</p>
+    <div class="card cb" id="confirm-detail"></div>
+
+  </div>
+  <div class="bbar"><button class="btn btn-g" onclick="submitOrder()">送出訂單</button></div>
+</div>
+
+<!-- ══ DONE ══ -->
+<div class="screen" id="s-done">
+  <div class="hdr"><h1>點餐完成</h1></div>
+  <div class="scroll">
+    <div class="succ-wrap">
+      <div class="succ-ring">
+        <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
+          <path d="M7 18l8 8L29 10" stroke="#00B900" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <p style="font-size:18px;font-weight:700;margin-bottom:6px;">訂單已送出！</p>
+      <p style="font-size:14px;color:var(--sub);" id="done-sub"></p>
+    </div>
+    <div class="card cb" id="done-detail"></div>
+  </div>
+  <div class="bbar"><button class="btn btn-g" onclick="goTo('s-home')">返回首頁</button></div>
+</div>
+
+<!-- ══ ADMIN LOGIN ══ -->
+<div class="screen" id="s-admin-login">
+  <div class="hdr">
+    <button class="hdr-back" onclick="goTo('s-home')">‹</button>
+    <h1>管理員登入</h1>
+  </div>
+  <div class="scroll" style="padding-top:28px;">
+    <div class="card cb">
+      <div class="fld"><label>管理員密碼</label>
+        <input type="password" id="admin-pwd" placeholder="輸入密碼" onkeydown="if(event.key==='Enter')adminLogin()"/>
+      </div>
+      <p class="notice">預設密碼：<strong>admin1234</strong></p>
+    </div>
+  </div>
+  <div class="bbar"><button class="btn btn-g" onclick="adminLogin()">登入</button></div>
+</div>
+
+<!-- ══ ADMIN MAIN ══ -->
+<div class="screen" id="s-admin">
+  <div class="hdr">
+    <h1>管理員後台</h1>
+    <button class="hdr-btn" onclick="adminLogout()">登出</button>
+  </div>
+  <div class="tabbar">
+    <div class="atab active" onclick="adminTab(0)">訂單總覽</div>
+    <div class="atab" onclick="adminTab(1)">日期設定</div>
+    <div class="atab" onclick="adminTab(2)">店家管理</div>
+    <div class="atab" onclick="adminTab(3)">設定</div>
+  </div>
+  <div id="admin-body" style="flex:1;overflow-y:auto;"></div>
+</div>
+
+<!-- ══ SHOP EDIT ══ -->
+<div class="screen" id="s-shop-edit">
+  <div class="hdr">
+    <button class="hdr-back" onclick="goTo('s-admin')">‹</button>
+    <h1 id="se-title">新增店家</h1>
+  </div>
+  <div class="scroll">
+    <!-- AI Import Panel -->
+    <div class="ai-panel" id="ai-panel">
+      <h3>🤖 AI 辨識菜單</h3>
+      <p>貼上菜單文字（拍照後文字辨識、截圖文字、或直接輸入），AI 會自動解析品項與價格</p>
+      <textarea class="ai-textarea" id="ai-menu-input"
+        placeholder="例：&#10;珍珠奶茶 65&#10;四季春奶茶 55&#10;多多綠茶 55&#10;波霸奶茶 65&#10;&#10;或貼上圖片掃描後的文字內容…"></textarea>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap;">
+        <button class="ai-btn" id="ai-parse-btn" onclick="aiParseMenu()">
+          <span id="ai-btn-text">✨ AI 解析</span>
+          <div class="ai-spin" id="ai-spin" style="display:none;"></div>
+        </button>
+        <button class="ai-btn" onclick="toggleAiPanel()" style="background:rgba(255,255,255,.08);">收起</button>
+      </div>
+      <p class="ai-result-note" id="ai-result-note"></p>
+    </div>
+    <button class="ai-btn" id="ai-show-btn" style="display:none;margin-bottom:12px;
+      background:linear-gradient(135deg,#203a43,#2c5364);border:none;" onclick="toggleAiPanel()">
+      🤖 AI 辨識菜單
+    </button>
+
+    <div class="fld"><label>店家名稱</label><input type="text" id="se-name" placeholder="例：50嵐"/></div>
+    <div class="row2">
+      <div class="fld"><label>類別</label><input type="text" id="se-cat" placeholder="飲料"/></div>
+      <div class="fld"><label>圖示</label><input type="text" id="se-icon" placeholder="🧋" maxlength="2"/></div>
+    </div>
+    <p class="slbl">餐點品項</p>
+    <div id="se-items"></div>
+    <button class="btn btn-o btn-sm" style="width:100%;margin-bottom:10px;" onclick="addItemRow()">＋ 新增品項</button>
+  </div>
+  <div class="bbar">
+    <button class="btn btn-g" onclick="saveShop()">儲存店家</button>
+    <button class="btn btn-d btn-sm" id="del-shop-btn" style="display:none" onclick="deleteShop()">刪除此店家</button>
+  </div>
+</div>
+
+<!-- ══ SUMMARY ══ -->
+<div class="screen" id="s-summary">
+  <div class="hdr">
+    <button class="hdr-back" onclick="goTo('s-admin')">‹</button>
+    <h1 id="summary-hdr">彙整訂單</h1>
+  </div>
+  <div class="scroll nb">
+    <div id="summary-preview"></div>
+  </div>
+  <div class="bbar">
+    <button class="btn btn-g" onclick="copyText()">複製訊息</button>
+    <button class="btn btn-o" onclick="goTo('s-admin')">返回</button>
+  </div>
+</div>
+
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════
+//  CONFIG
+//  部署方式：直接上傳此 HTML 到任何靜態空間
+//  （GitHub Pages、Netlify、Cloudflare Pages…）
+//  再用 TinyURL 縮短網址分享到 LINE 群組即可
+// ══════════════════════════════════════════
+const STORAGE_KEY_NAME = 'order_uname_v2';
+
+// ══════════════════════════════════════════
+//  HELPERS
+// ══════════════════════════════════════════
+const WEEK = ['日','一','二','三','四','五','六'];
+function dateKey(d) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function dateParts(key) {
+  const [y,m,d] = key.split('-').map(Number);
+  return { y, m, d, dow: new Date(y,m-1,d).getDay() };
+}
+function fmtDate(key, style='short') {
+  const {m,d,dow} = dateParts(key);
+  if (style === 'short') return `${m}/${d}（${WEEK[dow]}）`;
+  if (style === 'full') return `${dateParts(key).y}/${m}/${d}（${WEEK[dow]}）`;
+  if (style === 'md') return `${m}/${d}`;
+  return key;
+}
+function todayKey() { return dateKey(new Date()); }
+// Returns admin-configured dates sorted
+// includeAll=true → admin sees all dates
+// default (member) → only today-onwards AND has at least one shop configured
+function getDateRange(includeAll) {
+  const today = todayKey();
+  let keys = Object.keys(S.dateConfigs).filter(k => {
+    if (includeAll) return true;
+    if (k < today) return false;                          // past dates hidden
+    const cfg = S.dateConfigs[k];
+    return cfg && cfg.shopIds && cfg.shopIds.length > 0;  // must have shops
+  });
+  keys.sort();
+  return keys; // empty = no open dates, show empty state
+}
+
+// ══════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════
+function loadState() {
+  try {
+    const r = localStorage.getItem('oa_v2');
+    if (r) return JSON.parse(r);
+  } catch(e) {}
+  return {
+    adminPwd: 'admin1234',
+    shops: [
+      { id:'s1', name:'50嵐', cat:'飲料', icon:'🧋', items:[
+        {id:'i101',name:'四季春奶茶',price:55},
+        {id:'i102',name:'阿薩姆奶茶',price:55},
+        {id:'i103',name:'烏龍牛奶',price:60},
+        {id:'i104',name:'珍珠奶茶',price:65},
+        {id:'i105',name:'多多綠',price:55},
+      ]},
+      { id:'s2', name:'麥當勞', cat:'速食', icon:'🍔', items:[
+        {id:'i201',name:'大麥克套餐',price:149},
+        {id:'i202',name:'麥香魚套餐',price:139},
+        {id:'i203',name:'薯條(大)',price:55},
+      ]},
+    ],
+    // dateConfigs: { [dateKey]: { shopIds:[], deadline:'', closed:false } }
+    dateConfigs: {},
+    // orders: { [dateKey]: [ {id,person,pic,shopId,shopName,items,note,total,time} ] }
+    orders: {},
+  };
+}
+const S = loadState();
+function save() { localStorage.setItem('oa_v2', JSON.stringify(S)); }
+
+// Ensure dateConfig exists
+function getCfg(key) {
+  if (!S.dateConfigs[key]) S.dateConfigs[key] = { shopIds:[], deadlineDate:'', deadlineTime:'', closed:false };
+  const c = S.dateConfigs[key];
+  // migrate old deadline format
+  if (c.deadline !== undefined && !c.deadlineDate) {
+    c.deadlineDate = c.deadline ? key : '';
+    c.deadlineTime = c.deadline || '';
+    delete c.deadline;
+  }
+  return c;
+}
+function getOrders(key) {
+  if (!S.orders[key]) S.orders[key] = [];
+  return S.orders[key];
+}
+
+// ══════════════════════════════════════════
+//  SESSION
+// ══════════════════════════════════════════
+let cart = {};
+let curShopId = null;
+let curDateKey = todayKey();
+let editingShopId = null;
+let currentUser = { name:'訪客', pic:'' };
+let dlTimers = {};
+let adminViewDate = todayKey();
+
+// ══════════════════════════════════════════
+//  INIT — 無需 LIFF，直接分享網址即可使用
+// ══════════════════════════════════════════
+function initApp() {
+  const saved = localStorage.getItem(STORAGE_KEY_NAME);
+  curDateKey = todayKey();
+  if (saved && saved.trim()) {
+    currentUser = { name: saved.trim(), pic: '' };
+    goTo('s-home');
+  } else {
+    // First visit: show name entry screen
+    goTo('s-name-entry');
+    setTimeout(() => {
+      const inp = document.getElementById('name-input');
+      if (inp) inp.focus();
+    }, 200);
+  }
+}
+
+function confirmName() {
+  const inp = document.getElementById('name-input');
+  const name = inp ? inp.value.trim() : '';
+  if (!name) { showToast('請輸入姓名'); inp && inp.focus(); return; }
+  currentUser = { name, pic: '' };
+  localStorage.setItem(STORAGE_KEY_NAME, name);
+  goTo('s-home');
+}
+
+function changeName() {
+  // Go back to name entry with current name pre-filled
+  goTo('s-name-entry');
+  setTimeout(() => {
+    const inp = document.getElementById('name-input');
+    if (inp) { inp.value = currentUser.name; inp.focus(); inp.select(); }
+  }, 120);
+}
+
+// ══════════════════════════════════════════
+//  NAVIGATION
+// ══════════════════════════════════════════
+function goTo(id) {
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  const target = document.getElementById(id);
+  if (target) target.classList.add('active');
+  window.scrollTo(0,0);
+  if (id==='s-home') renderHome();
+  if (id==='s-menu') renderMenu();
+  if (id==='s-confirm') renderConfirm();
+  if (id==='s-admin') adminTab(0);
+}
+
+// ══════════════════════════════════════════
+//  MEMBER HOME
+// ══════════════════════════════════════════
+function renderHome() {
+  // user
+  document.getElementById('home-uname').textContent = currentUser.name;
+  const av = document.getElementById('home-ava');
+  av.innerHTML = currentUser.pic ? `<img src="${currentUser.pic}" alt=""/>` : currentUser.name.charAt(0);
+
+  renderDateStrip();
+  renderDateContent();
+}
+
+function renderDateStrip() {
+  const keys = getDateRange();
+  const el = document.getElementById('date-strip');
+  if (!keys.length) {
+    el.innerHTML = '';
+    return;
+  }
+  // ensure curDateKey is a valid open date
+  if (!keys.includes(curDateKey)) curDateKey = keys[0];
+  el.innerHTML = keys.map(key => {
+    const {m,d,dow} = dateParts(key);
+    const isToday = key === todayKey();
+    const myOrders = getOrders(key).filter(o=>o.person===currentUser.name);
+    const hasOrder = myOrders.length > 0;
+    const active = key === curDateKey;
+    return `<div class="date-tab ${active?'active':''} ${hasOrder?'has-order':''} ${isToday?'today':''}"
+      onclick="selectDate('${key}')">
+      <div class="dt-day">${isToday?'今天':WEEK[dow]}</div>
+      <div class="dt-date">${m}/${d}</div>
+      <div class="dt-dot"></div>
+    </div>`;
+  }).join('');
+}
+
+function selectDate(key) {
+  curDateKey = key;
+  renderDateStrip();
+  renderDateContent();
+}
+
+function renderDateContent() {
+  const keys = getDateRange();
+  if (!keys.length) {
+    // No open dates at all — show empty state
+    document.getElementById('home-sub').textContent = '目前沒有開放的點餐日期';
+    document.getElementById('shop-slbl').textContent = '';
+    document.getElementById('dl-display').innerHTML = '';
+    document.getElementById('home-shops').innerHTML =
+      `<div class="empty"><div class="ei">📅</div><p>團購主尚未開放點餐<br>請稍後再來</p></div>`;
+    return;
+  }
+  const key = curDateKey;
+  const isToday = key === todayKey();
+  const cfg = getCfg(key);
+  const closed = isDateClosed(key);
+
+  // header sub
+  document.getElementById('home-sub').textContent = `${fmtDate(key)} 點選下方店家`;
+  document.getElementById('shop-slbl').textContent = isToday ? '今日開放' : `${fmtDate(key,'md')} 開放`;
+
+  // deadline
+  Object.values(dlTimers).forEach(t=>clearInterval(t));
+  dlTimers = {};
+  renderDeadline(key);
+
+  // shops
+  const shops = S.shops.filter(sh=>cfg.shopIds.includes(sh.id));
+  const el = document.getElementById('home-shops');
+  if (!shops.length || closed) {
+    el.innerHTML = `<div class="empty"><div class="ei">${closed?'🔒':'🍱'}</div>
+      <p>${closed?'點餐已截止':'尚未開放點餐'}</p></div>`;
+    return;
+  }
+
+  // show existing order status
+  const myOrders = getOrders(key).filter(o=>o.person===currentUser.name);
+  const myOrderMap = {};
+  myOrders.forEach(o=>{ myOrderMap[o.shopId] = o; });
+
+  el.innerHTML = shops.map(sh => {
+    const existing = myOrderMap[sh.id];
+    const badge = existing
+      ? `<span style="font-size:11px;background:#e8f0fe;color:#185FA5;padding:2px 8px;border-radius:10px;margin-left:4px;">已訂</span>`
+      : '';
+    return `<div class="shop-row" onclick="openShop('${sh.id}','${key}')">
+      <div class="sh-icon">${sh.icon||'🍽'}</div>
+      <div style="flex:1">
+        <div class="sh-name">${sh.name}${badge}</div>
+        <div class="sh-meta">${sh.items.length} 個品項・${sh.cat}</div>
+      </div>
+      <span class="sh-tag">${sh.cat}</span>
+      <span class="chev">›</span>
+    </div>`;
+  }).join('');
+}
+
+function renderDeadline(key) {
+  const el = document.getElementById('dl-display');
+  const cfg = getCfg(key);
+  if (!cfg.deadlineDate && !cfg.deadlineTime && !cfg.closed) { el.innerHTML=''; return; }
+  if (cfg.closed) {
+    el.innerHTML = `<div class="dl-bar closed"><span>🔒</span><span class="dl-txt">已手動截止</span></div>`;
+    return;
+  }
+  if (!cfg.deadlineDate || !cfg.deadlineTime) { el.innerHTML=''; return; }
+  const dlLabel = `${fmtDate(cfg.deadlineDate,'md')} ${cfg.deadlineTime}`;
+  function upd() {
+    const now = new Date();
+    const [dy,dm,dd] = cfg.deadlineDate.split('-').map(Number);
+    const [hh,mm] = cfg.deadlineTime.split(':').map(Number);
+    const tgt = new Date(dy,dm-1,dd,hh,mm);
+    const diff = tgt - now;
+    if (diff <= 0) {
+      el.innerHTML = `<div class="dl-bar closed"><span>🔒</span><span class="dl-txt">截止時間 ${dlLabel} 已過</span></div>`;
+      clearInterval(dlTimers[key]);
+      renderDateContent();
+      return;
+    }
+    const totalMins = Math.floor(diff/60000);
+    const hours = Math.floor(totalMins/60);
+    const mins = totalMins % 60;
+    const secs = Math.floor((diff%60000)/1000);
+    const urgent = diff < 300000;
+    const timeStr = hours>0 ? `${hours}時${mins}分` : `${mins}分${String(secs).padStart(2,'0')}秒`;
+    el.innerHTML = `<div class="dl-bar${urgent?' style=\"background:#fff3cd\"':''}">
+      <span>${urgent?'⚠️':'⏰'}</span>
+      <span class="dl-txt">截止 ${dlLabel}・剩 <b>${timeStr}</b></span>
+    </div>`;
+  }
+  upd();
+  dlTimers[key] = setInterval(upd, 1000);
+}
+
+function isDateClosed(key) {
+  const cfg = getCfg(key);
+  if (cfg.closed) return true;
+  if (!cfg.deadlineDate || !cfg.deadlineTime) return false;
+  const [dy,dm,dd] = cfg.deadlineDate.split('-').map(Number);
+  const [hh,mm] = cfg.deadlineTime.split(':').map(Number);
+  return new Date() >= new Date(dy,dm-1,dd,hh,mm);
+}
+
+// ══════════════════════════════════════════
+//  MENU
+// ══════════════════════════════════════════
+function openShop(shopId, dateKey) {
+  if (isDateClosed(dateKey)) { showToast('此日期點餐已截止'); return; }
+  curShopId = shopId;
+  curDateKey = dateKey;
+  cart = {}; // { itemId: {qty, note} }
+  const ex = getOrders(dateKey).find(o=>o.person===currentUser.name && o.shopId===shopId);
+  if (ex) ex.items.forEach(it=>{ cart[it.id]={qty:it.qty, note:it.note||''}; });
+  goTo('s-menu');
+}
+
+function renderMenu() {
+  const shop = S.shops.find(s=>s.id===curShopId);
+  if (!shop) return;
+  document.getElementById('menu-title').textContent = shop.name;
+  document.getElementById('menu-date-pill').textContent = fmtDate(curDateKey,'md');
+  document.getElementById('menu-list').innerHTML = shop.items.map(it=>{
+    const entry = cart[it.id]||{qty:0,note:''};
+    const qty = entry.qty||0;
+    return `<div class="mitem" style="flex-wrap:wrap;">
+      <span class="mitem-name" style="flex:1;min-width:100px;">${it.name}</span>
+      <span class="mprice">$${it.price}</span>
+      <div class="qty-ctrl">
+        <button class="qbtn" onclick="updateCart('${it.id}',-1)">−</button>
+        <span class="qnum" id="q-${it.id}">${qty}</span>
+        <button class="qbtn p ${qty>0?'hq':''}" id="qp-${it.id}" onclick="updateCart('${it.id}',1)">＋</button>
+      </div>
+      ${qty>0?`<div class="item-note-row" style="width:100%;padding-left:2px;">
+        <input class="item-note-input" id="inote-${it.id}" placeholder="備註：去冰、少糖…"
+          value="${(entry.note||'').replace(/"/g,'&quot;')}"
+          oninput="updateCartNote('${it.id}',this.value)"/>
+      </div>`:''}
+    </div>`;
+  }).join('');
+  renderCartBar();
+}
+
+function updateCart(id, delta) {
+  const entry = cart[id]||{qty:0,note:''};
+  entry.qty = Math.max(0, entry.qty + delta);
+  if (entry.qty===0) { delete cart[id]; } else { cart[id]=entry; }
+  const q=document.getElementById('q-'+id);
+  const p=document.getElementById('qp-'+id);
+  if(q) q.textContent=entry.qty||0;
+  if(p) p.classList.toggle('hq',(entry.qty||0)>0);
+  // Re-render menu item row to show/hide note input
+  const shop=S.shops.find(s=>s.id===curShopId);
+  if(shop) {
+    const it=shop.items.find(i=>i.id===id);
+    if(it){
+      const qty=entry.qty||0;
+      // find or rebuild the item-note-row
+      const mitem=q&&q.closest('.mitem');
+      if(mitem){
+        let noteRow=mitem.querySelector('.item-note-row');
+        if(qty>0 && !noteRow){
+          noteRow=document.createElement('div');
+          noteRow.className='item-note-row';
+          noteRow.style.cssText='width:100%;padding-left:2px;';
+          noteRow.innerHTML=`<input class="item-note-input" id="inote-${id}" placeholder="備註：去冰、少糖…"
+            value="${(entry.note||'').replace(/"/g,'&quot;')}"
+            oninput="updateCartNote('${id}',this.value)"/>`;
+          mitem.appendChild(noteRow);
+        } else if(qty===0 && noteRow){ noteRow.remove(); }
+      }
+    }
+  }
+  renderCartBar();
+}
+function updateCartNote(id, val) {
+  if(cart[id]) cart[id].note = val;
+}
+
+function renderCartBar() {
+  const total = cartTotal();
+  const count = Object.values(cart).reduce((a,b)=>a+(b.qty||0),0);
+  const el = document.getElementById('cart-wrap');
+  if (!count) { el.innerHTML=''; return; }
+  el.innerHTML = `<div class="cart-bar" onclick="goTo('s-confirm')">
+    <div><p>查看訂單（${count} 樣）</p><span>合計 $${total}</span></div>
+    <span style="color:#fff;font-size:18px;">›</span>
+  </div>`;
+}
+
+function cartTotal() {
+  const shop = S.shops.find(s=>s.id===curShopId);
+  if(!shop) return 0;
+  return Object.entries(cart).reduce((sum,[id,entry])=>{
+    const it=shop.items.find(i=>i.id===id);
+    return sum+(it?it.price*(entry.qty||0):0);
+  },0);
+}
+
+// ══════════════════════════════════════════
+//  CONFIRM & SUBMIT
+// ══════════════════════════════════════════
+function renderConfirm() {
+  const shop = S.shops.find(s=>s.id===curShopId);
+  if(!shop) return;
+  const isToday = curDateKey===todayKey();
+  document.getElementById('confirm-date-info').innerHTML =
+    `<div style="display:flex;align-items:center;gap:8px;">
+      <span style="font-size:20px;">${isToday?'📅':'🗓'}</span>
+      <div>
+        <p style="font-weight:600;">${fmtDate(curDateKey,'full')}</p>
+        <p style="font-size:12px;color:var(--sub);">${isToday?'今日':'預訂'} / ${shop.name} / ${currentUser.name}</p>
+      </div>
+    </div>`;
+  let html='';
+  Object.entries(cart).forEach(([id,entry])=>{
+    const it=shop.items.find(i=>i.id===id);
+    if(!it) return;
+    const note = entry.note||'';
+    html+=`<div style="padding:8px 0;border-bottom:1px solid var(--bdr);">
+      <div style="display:flex;justify-content:space-between;font-size:14px;">
+        <span>${it.name} × ${entry.qty}</span>
+        <span style="font-weight:600;">$${it.price*entry.qty}</span>
+      </div>
+      ${note?`<div style="font-size:12px;color:var(--sub);margin-top:3px;">📝 ${note}</div>`:''}
+    </div>`;
+  });
+  const total = cartTotal();
+  html+=`<div class="ototal"><span>合計</span><span style="color:var(--green);">$${total}</span></div>`;
+  document.getElementById('confirm-detail').innerHTML=html;
+
+}
+
+function submitOrder() {
+  const shop=S.shops.find(s=>s.id===curShopId);
+  if(!shop) return;
+  const tender=0; // tender now entered by admin
+  const items=Object.entries(cart).map(([id,entry])=>{
+    const it=shop.items.find(i=>i.id===id);
+    return it?{id,name:it.name,qty:entry.qty,price:it.price,note:entry.note||''}:null;
+  }).filter(Boolean);
+  const total=cartTotal();
+  const change=tender>=total?tender-total:0;
+  const order={
+    id:Date.now().toString(),
+    person:currentUser.name, pic:currentUser.pic,
+    shopId:shop.id, shopName:shop.name,
+    items, total,
+    tender: tender||0,
+    change: change,
+    paid: false,
+    time:new Date().toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'}),
+  };
+  const arr=getOrders(curDateKey);
+  const idx=arr.findIndex(o=>o.person===currentUser.name&&o.shopId===shop.id);
+  if(idx>-1) arr.splice(idx,1,order); else arr.push(order);
+  save();
+
+  document.getElementById('done-sub').textContent=`${fmtDate(curDateKey)} / ${shop.name}`;
+  let dh=items.map(i=>{
+    return `<div style="padding:7px 0;border-bottom:1px solid var(--bdr);font-size:14px;">
+      <div style="display:flex;justify-content:space-between;">
+        <span>${i.name} × ${i.qty}</span><span>$${i.price*i.qty}</span>
+      </div>
+      ${i.note?`<div style="font-size:12px;color:var(--sub);margin-top:2px;">📝 ${i.note}</div>`:''}
+    </div>`;
+  }).join('');
+  dh+=`<div class="ototal"><span>合計</span><span style="color:var(--green);">$${total}</span></div>`;
+
+  document.getElementById('done-detail').innerHTML=dh;
+  goTo('s-done');
+}
+
+// ══════════════════════════════════════════
+//  ADMIN LOGIN
+// ══════════════════════════════════════════
+function adminLogin() {
+  if(document.getElementById('admin-pwd').value===S.adminPwd) {
+    document.getElementById('admin-pwd').value='';
+    adminViewDate=todayKey();
+    goTo('s-admin');
+  } else showToast('密碼錯誤');
+}
+function adminLogout() { goTo('s-home'); }
+
+// ══════════════════════════════════════════
+//  ADMIN TABS
+// ══════════════════════════════════════════
+function adminTab(idx) {
+  document.querySelectorAll('.atab').forEach((t,i)=>t.classList.toggle('active',i===idx));
+  const body=document.getElementById('admin-body');
+  if(idx===0) renderAdminOrders(body);
+  if(idx===1) renderAdminDateConfig(body);
+  if(idx===2) renderAdminShops(body);
+  if(idx===3) renderAdminSettings(body);
+}
+
+// ── TAB 0: 訂單總覽 ───────────────────────
+function renderAdminOrders(body) {
+  const keys = getDateRange(true);
+  // date selector pills
+  let html = `<div class="addate-strip" id="order-date-pills">`;
+  if (!keys.length) {
+    html += `<span style="padding:10px 14px;font-size:13px;color:var(--hint);">尚未設定開團日期</span>`;
+  }
+  keys.forEach(key=>{
+    const cnt = getOrders(key).length;
+    const active = key===adminViewDate;
+    const isToday = key===todayKey();
+    html += `<div class="addate-pill ${active?'active':''}" onclick="adminSelectDate('${key}')">
+      ${isToday?'今天 ':''}${fmtDate(key,'md')}
+      ${cnt>0?`<span class="pill-cnt">${cnt}</span>`:''}
+    </div>`;
+  });
+  html += `</div>`;
+  // orders content — separated from action buttons
+  html += `<div id="orders-inner" style="padding:12px 14px 8px;"></div>`;
+  // action buttons live OUTSIDE orders-inner so they survive innerHTML replacement
+  html += `<div id="orders-actions" style="padding:0 14px 90px;display:flex;flex-direction:column;gap:7px;"></div>`;
+  body.innerHTML = html;
+  // ensure adminViewDate is valid
+  if (keys.length) { if (!keys.includes(adminViewDate)) adminViewDate = keys[keys.length-1]; }
+  else adminViewDate = todayKey();
+  renderOrdersInner();
+}
+
+function adminSelectDate(key) {
+  adminViewDate = key;
+  document.querySelectorAll('#order-date-pills .addate-pill').forEach(el=>{
+    el.classList.toggle('active', el.textContent.trim().replace(/\s+/g,' ').includes(fmtDate(key,'md')));
+  });
+  // re-render pills cleanly
+  const keys = getDateRange(true);
+  const strip = document.getElementById('order-date-pills');
+  if (strip) {
+    strip.innerHTML = keys.map(k=>{
+      const cnt = getOrders(k).length;
+      const isToday = k===todayKey();
+      return `<div class="addate-pill ${k===key?'active':''}" onclick="adminSelectDate('${k}')">
+        ${isToday?'今天 ':''}${fmtDate(k,'md')}
+        ${cnt>0?`<span class="pill-cnt">${cnt}</span>`:''}
+      </div>`;
+    }).join('');
+  }
+  renderOrdersInner();
+}
+
+function togglePaid(dateKey, orderId) {
+  const arr = getOrders(dateKey);
+  const o = arr.find(x=>x.id===orderId);
+  if(o) { o.paid=!o.paid; save(); renderOrdersInner(); }
+}
+
+function adminSetTender(dateKey, orderId, val, total, inputEl) {
+  const arr = getOrders(dateKey);
+  const o = arr.find(x=>x.id===orderId);
+  if(!o) return;
+  const tender = parseInt(val)||0;
+  o.tender = tender;
+  o.change = tender>=total ? tender-total : 0;
+  save();
+  // update change label without full re-render
+  const lbl = document.getElementById('chg-'+orderId);
+  if(lbl) {
+    if(tender>0) {
+      if(tender>=total) { lbl.textContent=`找 $${o.change}`; lbl.style.color='#0a6e3c'; }
+      else { lbl.textContent=`不足 $${total-tender}`; lbl.style.color='#c00'; }
+    } else { lbl.textContent=''; }
+  }
+  // update totals bar
+  const orders = getOrders(dateKey);
+  const paidAmt = orders.filter(x=>x.paid).reduce((a,b)=>a+b.total,0);
+  const totalAmt = orders.reduce((a,b)=>a+b.total,0);
+  const tbar = document.getElementById('paid-bar');
+  if(tbar) tbar.innerHTML = `<span>已付款</span><strong>$${paidAmt} / ${orders.filter(x=>x.paid).length} 人</strong>`;
+}
+
+function renderOrdersInner() {
+  const el = document.getElementById('orders-inner');
+  const actEl = document.getElementById('orders-actions');
+  if (!el || !actEl) return;
+
+  const orders = getOrders(adminViewDate);
+  const dateLabel = fmtDate(adminViewDate,'md');
+
+  if (!orders.length) {
+    el.innerHTML = `<div class="empty"><div class="ei">📋</div><p>${fmtDate(adminViewDate)} 尚無訂單</p></div>`;
+    actEl.innerHTML = `<button class="btn btn-g" onclick="buildSummary('${adminViewDate}')">彙整 ${dateLabel} 訂單</button>`;
+    return;
+  }
+
+  const grouped = {};
+  orders.forEach(o=>{ (grouped[o.shopName]=grouped[o.shopName]||[]).push(o); });
+  let html = '';
+  Object.entries(grouped).forEach(([shop,ords])=>{
+    const st=ords.reduce((a,b)=>a+b.total,0);
+    const paidCnt=ords.filter(o=>o.paid).length;
+    html+=`<div class="ogroup">
+      <div class="ogrp-hdr">
+        <span class="cnt-badge">${ords.length} 人 · 已付 ${paidCnt}/${ords.length}</span>
+        <h3 style="font-size:14px;font-weight:700;">🏪 ${shop}</h3>
+      </div>
+      <div class="card" style="overflow:visible;">`;
+    ords.forEach(o=>{
+      const noteItems = o.items.filter(i=>i.note);
+      const change = o.tender>=o.total ? o.tender-o.total : 0;
+      html+=`<div style="padding:10px 14px;border-bottom:1px solid var(--bdr);">
+        <div style="display:flex;align-items:flex-start;gap:9px;">
+          <div class="p-ava" style="margin-top:2px;">${o.person.charAt(0)}</div>
+          <div style="flex:1;min-width:0;">
+            <div class="p-nm">${o.person}</div>
+            <div class="p-its">${o.items.map(i=>i.name+(i.qty>1?' ×'+i.qty:'')).join('、')}</div>
+            ${noteItems.length?`<div class="p-note">${noteItems.map(i=>`${i.name}：${i.note}`).join('・')}</div>`:''}
+            <!-- tender row -->
+            <div style="display:flex;align-items:center;gap:6px;margin-top:6px;flex-wrap:wrap;">
+              <span style="font-size:12px;color:var(--sub);white-space:nowrap;">金額 $${o.total}　付款 $</span>
+              <input type="number" value="${o.tender||''}" placeholder="${o.total}"
+                style="width:80px;padding:4px 7px;border:1px solid var(--bdr-md);border-radius:var(--r-sm);
+                font-size:13px;font-family:var(--font);outline:none;"
+                onfocus="this.style.borderColor='var(--green)'"
+                onblur="this.style.borderColor='var(--bdr-md)'"
+                oninput="adminSetTender('${adminViewDate}','${o.id}',this.value,${o.total},this)"
+              />
+              <span id="chg-${o.id}" style="font-size:12px;font-weight:600;
+                color:${o.tender>=o.total?'#0a6e3c':o.tender>0?'#c00':'var(--hint)'};">
+                ${o.tender>0?(o.tender>=o.total?`找 $${change}`:`不足 $${o.total-o.tender}`):''}
+              </span>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0;margin-left:4px;">
+            <span class="p-prc">$${o.total}</span>
+            <button onclick="togglePaid('${adminViewDate}','${o.id}')"
+              class="pay-btn ${o.paid?'paid':'unpaid'}">${o.paid?'✓ 已付':'未付'}</button>
+          </div>
+        </div>
+      </div>`;
+    });
+    html+=`</div></div>`;
+  });
+  el.innerHTML = html;
+
+  const totalAmt = orders.reduce((a,b)=>a+b.total,0);
+  const paidAmt = orders.filter(o=>o.paid).reduce((a,b)=>a+b.total,0);
+  actEl.innerHTML = `
+    <div style="background:var(--surf);border:1px solid var(--bdr);border-radius:var(--r-sm);
+      padding:10px 14px;display:flex;justify-content:space-between;align-items:center;">
+      <span style="font-size:13px;color:var(--sub);">總金額</span>
+      <span style="font-size:15px;font-weight:700;color:var(--green);">$${totalAmt}</span>
+    </div>
+    <div id="paid-bar" style="background:#e8f0fe;border-radius:var(--r-sm);padding:9px 14px;
+      display:flex;justify-content:space-between;font-size:13px;color:#185FA5;">
+      <span>已付款</span><strong>$${paidAmt} / ${orders.filter(o=>o.paid).length} 人</strong>
+    </div>
+    <button class="btn btn-g" onclick="buildSummary('${adminViewDate}')">複製 ${dateLabel} 彙整訊息</button>
+    <button class="btn btn-d btn-sm" onclick="clearDateOrders('${adminViewDate}')">清空 ${dateLabel} 訂單</button>`;
+}
+
+// ── TAB 1: 日期設定 ───────────────────────
+function renderAdminDateConfig(body) {
+  const keys = getDateRange(true); // admin sees ALL configured dates
+  let html = `<div style="padding:12px 14px 100px;">`;
+  // Add new date row
+  html += `<div class="dcfg-row" style="border:1.5px dashed var(--bdr-md);background:transparent;">
+    <p style="font-size:13px;font-weight:600;margin-bottom:8px;">➕ 新增開團日期</p>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <input type="date" id="new-date-input" min="${todayKey()}"
+        style="flex:1;padding:8px 10px;border:1px solid var(--bdr-md);border-radius:var(--r-sm);font-size:14px;"/>
+      <button class="btn btn-g btn-sm" style="white-space:nowrap;" onclick="addDateConfig()">新增</button>
+    </div>
+  </div>`;
+
+  if (!keys.length) {
+    html += `<div class="empty"><div class="ei">📅</div><p>尚未新增任何開團日期</p></div>`;
+  }
+  keys.forEach(key=>{
+    const cfg = getCfg(key);
+    const isToday = key===todayKey();
+    const isPast = key < todayKey();
+    const cnt = getOrders(key).length;
+    html += `<div class="dcfg-row" ${isPast?'style="opacity:.7;"':''}>
+      <div class="dcfg-hdr">
+        <div>
+          <span class="dc-date">${fmtDate(key,'full')}</span>
+          ${isPast?'<span style="font-size:11px;color:#c77;margin-left:6px;">已過期</span>':''}
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span class="dc-badge ${isToday?'today':''}">${isToday?'今天': cnt?cnt+'筆訂單':'尚無訂單'}</span>
+          <button class="btn btn-d btn-sm" style="padding:3px 8px;font-size:11px;" onclick="removeDateConfig('${key}')">移除</button>
+        </div>
+      </div>
+      <p style="font-size:11px;color:var(--hint);font-weight:700;letter-spacing:.7px;margin-bottom:6px;">開放店家</p>
+      <div class="tgrp">
+        ${S.shops.map(sh=>`<div class="ttag ${cfg.shopIds.includes(sh.id)?'on':''}"
+          onclick="toggleShop('${key}','${sh.id}',this)">${sh.icon||'🍽'} ${sh.name}</div>`).join('')}
+      </div>
+      <p style="font-size:11px;color:var(--hint);font-weight:700;letter-spacing:.7px;margin-bottom:6px;">結單日期時間</p>
+      <div id="dl-row-${key}" style="display:flex;align-items:center;gap:6px;margin-bottom:4px;flex-wrap:wrap;">
+        <input type="date" class="dl-date" value="${cfg.deadlineDate||''}"
+          style="flex:1;min-width:120px;padding:7px 9px;border:1px solid var(--bdr-md);border-radius:var(--r-sm);font-size:14px;"
+          oninput="setDeadlineDate('${key}',this.value)"/>
+        <input type="time" class="dl-time" value="${cfg.deadlineTime||''}"
+          style="width:110px;padding:7px 9px;border:1px solid var(--bdr-md);border-radius:var(--r-sm);font-size:14px;"
+          oninput="setDeadlineTime('${key}',this.value)"/>
+        <button class="btn btn-o btn-sm" onclick="clearDeadline('${key}')">清除</button>
+      </div>
+      <p style="font-size:11px;color:var(--sub);margin-bottom:10px;">可指定結單日期與時間，例如提前一天收單</p>
+      <div class="sw-wrap">
+        <div class="sw-label">
+          <p>立即截止</p>
+          <span>開啟後此日期立即鎖定</span>
+        </div>
+        <label class="sw">
+          <input type="checkbox" ${cfg.closed?'checked':''} onchange="toggleClosed('${key}',this)"/>
+          <span class="sw-track"></span>
+        </label>
+      </div>
+    </div>`;
+  });
+  html += `</div>`;
+  body.innerHTML = html;
+}
+
+function addDateConfig() {
+  const input = document.getElementById('new-date-input');
+  const key = input.value;
+  if (!key) { showToast('請選擇日期'); return; }
+  if (S.dateConfigs[key]) { showToast('此日期已存在'); return; }
+  getCfg(key); // initialize
+  save();
+  showToast(`已新增 ${fmtDate(key)} ✓`);
+  adminTab(1);
+}
+
+function removeDateConfig(key) {
+  const cnt = getOrders(key).length;
+  const msg = cnt > 0
+    ? `${fmtDate(key)} 有 ${cnt} 筆訂單，確定要移除此日期設定嗎？（訂單資料會保留）`
+    : `確定要移除 ${fmtDate(key)} 的開團設定嗎？`;
+  if (!confirm(msg)) return;
+  delete S.dateConfigs[key];
+  save();
+  showToast('已移除');
+  adminTab(1);
+}
+
+function toggleShop(dateKey, shopId, el) {
+  const cfg = getCfg(dateKey);
+  const idx = cfg.shopIds.indexOf(shopId);
+  if (idx>-1) cfg.shopIds.splice(idx,1); else cfg.shopIds.push(shopId);
+  el.classList.toggle('on', cfg.shopIds.includes(shopId));
+  save(); showToast('已儲存');
+}
+function setDeadlineDate(dateKey, val) {
+  getCfg(dateKey).deadlineDate = val; save();
+}
+function setDeadlineTime(dateKey, val) {
+  getCfg(dateKey).deadlineTime = val; save();
+}
+function clearDeadline(dateKey) {
+  getCfg(dateKey).deadlineDate = '';
+  getCfg(dateKey).deadlineTime = '';
+  const row = document.getElementById('dl-row-'+dateKey);
+  if (row) { row.querySelector('.dl-date').value=''; row.querySelector('.dl-time').value=''; }
+  save(); showToast('已清除截止時間');
+}
+function toggleClosed(dateKey, el) {
+  getCfg(dateKey).closed = el.checked; save();
+  showToast(el.checked ? '已截止 🔒' : '已開放 ✓');
+}
+
+// ── TAB 2: 店家管理 ───────────────────────
+function renderAdminShops(body) {
+  let html = `<div style="padding:12px 14px 90px;">`;
+  S.shops.forEach(sh=>{
+    html+=`<div class="card cb" style="margin-bottom:10px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;">
+        <div style="display:flex;align-items:center;gap:9px;">
+          <span style="font-size:20px;">${sh.icon||'🍽'}</span>
+          <div><p style="font-weight:700;">${sh.name}</p>
+          <p style="font-size:12px;color:var(--sub);">${sh.cat}・${sh.items.length} 個品項</p></div>
+        </div>
+        <button class="btn btn-o btn-sm" onclick="editShop('${sh.id}')">編輯</button>
+      </div>
+      <div style="font-size:12px;color:var(--sub);line-height:1.9;">
+        ${sh.items.map(i=>`<span style="display:inline-block;background:#f4f4f4;border-radius:6px;padding:1px 7px;margin:2px;">${i.name} $${i.price}</span>`).join('')}
+      </div>
+    </div>`;
+  });
+  html+=`</div><div class="bbar ghost" style="position:static;padding:0 14px 14px;">
+    <button class="btn btn-g" onclick="newShop()">＋ 新增店家</button>
+  </div>`;
+  body.innerHTML=html;
+}
+
+// ── TAB 3: 設定 ───────────────────────────
+function renderAdminSettings(body) {
+  body.innerHTML=`<div style="padding:12px 14px 90px;">
+    <p class="slbl">分享網址</p>
+    <div class="card cb" style="margin-bottom:14px;">
+      <p style="font-size:13px;font-weight:600;margin-bottom:6px;">📤 分享給成員點餐</p>
+      <p style="font-size:12px;color:var(--sub);line-height:1.7;">
+        直接將此頁面的網址複製並分享到 LINE 群組即可。<br>
+        建議使用 <a href="https://tinyurl.com" target="_blank" style="color:var(--green);">TinyURL</a> 或
+        <a href="https://reurl.cc" target="_blank" style="color:var(--green);">reurl.cc</a> 縮短網址，方便貼在 LINE 訊息中。<br><br>
+        成員第一次開啟時會看到姓名輸入畫面，之後自動記憶。
+      </p>
+      <button class="btn btn-o btn-sm" style="margin-top:10px;width:100%;" onclick="copyPageUrl()">複製目前網址</button>
+    </div>
+    <p class="slbl">修改管理員密碼</p>
+    <div class="card cb">
+      <div class="fld"><label>目前密碼</label><input type="password" id="pwd-old"/></div>
+      <div class="fld"><label>新密碼（至少 6 字）</label><input type="password" id="pwd-new"/></div>
+      <div class="fld"><label>確認新密碼</label><input type="password" id="pwd-cfm"/></div>
+    </div>
+    <p class="slbl">危險操作</p>
+    <div class="card cb">
+      <button class="btn btn-d" style="width:100%;" onclick="resetAll()">⚠ 清除所有資料（恢復預設）</button>
+    </div>
+  </div>
+  <div class="bbar ghost" style="position:static;padding:0 14px 14px;">
+    <button class="btn btn-g" onclick="savePwd()">更新密碼</button>
+  </div>`;
+}
+function savePwd() {
+  const o=document.getElementById('pwd-old').value;
+  const n=document.getElementById('pwd-new').value;
+  const c=document.getElementById('pwd-cfm').value;
+  if(o!==S.adminPwd){showToast('目前密碼錯誤');return;}
+  if(n.length<6){showToast('新密碼至少 6 字');return;}
+  if(n!==c){showToast('確認密碼不符');return;}
+  S.adminPwd=n; save(); showToast('密碼已更新 ✓');
+}
+function resetAll() {
+  if(!confirm('確定清除所有資料？此操作無法復原。')) return;
+  localStorage.removeItem('oa_v2');
+  localStorage.removeItem(STORAGE_KEY_NAME);
+  location.reload();
+}
+function clearDateOrders(key) {
+  const cnt = getOrders(key).length;
+  if(!confirm(`確定清空 ${fmtDate(key)} 的 ${cnt} 筆訂單嗎？此操作無法復原。`)) return;
+  S.orders[key] = [];
+  save();
+  // refresh pills (order count changed)
+  adminSelectDate(key);
+  showToast('已清空 ✓');
+}
+
+// ══════════════════════════════════════════
+//  SHOP EDIT
+// ══════════════════════════════════════════
+function newShop() {
+  editingShopId=null;
+  document.getElementById('se-title').textContent='新增店家';
+  document.getElementById('se-name').value='';
+  document.getElementById('se-cat').value='';
+  document.getElementById('se-icon').value='';
+  document.getElementById('se-items').innerHTML='';
+  document.getElementById('del-shop-btn').style.display='none';
+  addItemRow(); addItemRow(); addItemRow();
+  goTo('s-shop-edit');
+}
+function editShop(id) {
+  editingShopId=id;
+  const sh=S.shops.find(s=>s.id===id); if(!sh) return;
+  document.getElementById('se-title').textContent='編輯店家';
+  document.getElementById('se-name').value=sh.name;
+  document.getElementById('se-cat').value=sh.cat;
+  document.getElementById('se-icon').value=sh.icon||'';
+  document.getElementById('se-items').innerHTML='';
+  sh.items.forEach(it=>addItemRow(it.name,it.price));
+  document.getElementById('del-shop-btn').style.display='block';
+  goTo('s-shop-edit');
+}
+function addItemRow(name='',price='') {
+  const row=document.createElement('div');
+  row.className='ierow';
+  row.innerHTML=`<input placeholder="品項名稱" value="${name}" class="se-iname"
+    style="flex:2;padding:8px 10px;border:1px solid var(--bdr-md);border-radius:var(--r-sm);font-size:14px;"/>
+    <input placeholder="價格" type="number" value="${price}" class="se-iprice"
+    style="width:80px;padding:8px 10px;border:1px solid var(--bdr-md);border-radius:var(--r-sm);font-size:14px;"/>
+    <button class="rmbtn" onclick="this.parentElement.remove()">×</button>`;
+  document.getElementById('se-items').appendChild(row);
+}
+function saveShop() {
+  const name=document.getElementById('se-name').value.trim();
+  const cat=document.getElementById('se-cat').value.trim()||'其他';
+  const icon=document.getElementById('se-icon').value.trim()||'🍽';
+  if(!name){showToast('請輸入店家名稱');return;}
+  const items=[];
+  document.querySelectorAll('#se-items .ierow').forEach((row,i)=>{
+    const n=row.querySelector('.se-iname').value.trim();
+    const p=parseInt(row.querySelector('.se-iprice').value)||0;
+    if(n) items.push({id:`${editingShopId||'new'}_i${Date.now()}_${i}`,name:n,price:p});
+  });
+  if(!items.length){showToast('至少新增一個品項');return;}
+  if(editingShopId) {
+    const idx=S.shops.findIndex(s=>s.id===editingShopId);
+    const ex=S.shops[idx];
+    items.forEach((it,i)=>{ if(ex.items[i]) it.id=ex.items[i].id; });
+    S.shops[idx]={...ex,name,cat,icon,items};
+  } else {
+    S.shops.push({id:'s'+Date.now(),name,cat,icon,items});
+  }
+  save(); showToast('已儲存 ✓'); goTo('s-admin');
+}
+function deleteShop() {
+  if(!confirm('確定刪除此店家？')) return;
+  S.shops=S.shops.filter(s=>s.id!==editingShopId);
+  Object.values(S.dateConfigs).forEach(cfg=>{
+    cfg.shopIds=cfg.shopIds.filter(id=>id!==editingShopId);
+  });
+  save(); showToast('已刪除'); goTo('s-admin');
+}
+
+// ══════════════════════════════════════════
+//  SUMMARY — 品項彙整模式
+// ══════════════════════════════════════════
+function buildSummary(key) {
+  const orders = getOrders(key);
+  const dateStr = fmtDate(key,'full');
+  document.getElementById('summary-hdr').textContent = `彙整 ${fmtDate(key,'md')} 訂單`;
+  const prevEl = document.getElementById('summary-preview');
+
+  if (!orders.length) {
+    prevEl.innerHTML=`<div class="empty"><div class="ei">📋</div><p>此日期尚無訂單</p></div>`;
+    prevEl.dataset.text='';
+    goTo('s-summary');
+    return;
+  }
+
+  // Group by shop → aggregate items
+  const grouped={};
+  orders.forEach(o=>{ (grouped[o.shopName]=grouped[o.shopName]||[]).push(o); });
+  let grand=0;
+
+  // ── Copy text: item aggregation only + grand total ──
+  let text = `🧾 團購品項彙整 ${dateStr}\n══════════════════\n`;
+  Object.entries(grouped).forEach(([shop,ords])=>{
+    const st=ords.reduce((a,b)=>a+b.total,0); grand+=st;
+    const itemMap={};
+    ords.forEach(o=>o.items.forEach(i=>{
+      const k=i.name+(i.note?`（${i.note}）`:'');
+      if(!itemMap[k]) itemMap[k]={name:i.name,note:i.note||'',qty:0,price:i.price};
+      itemMap[k].qty+=i.qty;
+    }));
+    text+=`\n▌${shop}（${ords.length} 人）\n`;
+    Object.values(itemMap).forEach(it=>{
+      const ns=it.note?`（${it.note}）`:'';
+      text+=`  ${it.name}${ns} × ${it.qty}　＄${it.price*it.qty}\n`;
+    });
+  });
+  text+=`\n══════════════════\n總計：＄${grand}　共 ${orders.length} 人`;
+
+  // ── HTML preview: shop header (date left, name right) + items + grand total ──
+  let html='';
+  Object.entries(grouped).forEach(([shop,ords])=>{
+    const itemMap={};
+    ords.forEach(o=>o.items.forEach(i=>{
+      const k=i.name+(i.note?`（${i.note}）`:'');
+      if(!itemMap[k]) itemMap[k]={name:i.name,note:i.note||'',qty:0,price:i.price};
+      itemMap[k].qty+=i.qty;
+    }));
+    // header: person count (left) + shop name (right)
+    html+=`<div class="ogroup">
+      <div class="ogrp-hdr">
+        <span class="cnt-badge">${ords.length} 人</span>
+        <h3 style="font-size:14px;font-weight:700;">🏪 ${shop}</h3>
+      </div>
+      <div class="card">`;
+    Object.values(itemMap).forEach(it=>{
+      const noteStr=it.note?`<span style="color:#c77;font-size:11px;margin-left:4px;">（${it.note}）</span>`:'';
+      html+=`<div style="display:flex;justify-content:space-between;align-items:center;
+        padding:10px 14px;border-bottom:1px solid var(--bdr);font-size:14px;">
+        <span style="font-weight:500;">${it.name}${noteStr}
+          <span style="color:var(--green);font-weight:700;margin-left:6px;">×${it.qty}</span>
+        </span>
+        <span style="font-weight:600;">$${it.price*it.qty}</span>
+      </div>`;
+    });
+    html+=`</div></div>`;
+  });
+  // grand total bar
+  html+=`<div style="background:var(--green);border-radius:var(--r-sm);padding:11px 16px;
+    display:flex;justify-content:space-between;align-items:center;color:#fff;font-weight:700;margin-top:4px;">
+    <span>總金額</span><span>$${grand}　${orders.length} 人</span>
+  </div>`;
+
+  prevEl.innerHTML=html;
+  prevEl.dataset.text=text;
+  goTo('s-summary');
+}
+function copyText() {
+  const t = document.getElementById('summary-preview').dataset.text || '';
+  if (!t) { showToast('無資料可複製'); return; }
+  if(navigator.clipboard) {
+    navigator.clipboard.writeText(t).then(()=>showToast('已複製到剪貼簿 ✓'));
+  } else {
+    const el=document.createElement('textarea');
+    el.value=t; el.style.cssText='position:fixed;opacity:0;';
+    document.body.appendChild(el); el.select(); document.execCommand('copy');
+    document.body.removeChild(el); showToast('已複製 ✓');
+  }
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ══════════════════════════════════════════
+//  TOAST
+// ══════════════════════════════════════════
+let _tt;
+function showToast(msg) {
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  clearTimeout(_tt); _tt=setTimeout(()=>t.classList.remove('show'),2000);
+}
+
+// ══════════════════════════════════════════
+//  URL SHARE HELPER
+// ══════════════════════════════════════════
+function copyPageUrl() {
+  const url = window.location.href.split('?')[0].split('#')[0];
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(url).then(() => showToast('網址已複製 ✓'));
+  } else {
+    const el = document.createElement('textarea');
+    el.value = url; el.style.cssText = 'position:fixed;opacity:0;';
+    document.body.appendChild(el); el.select(); document.execCommand('copy');
+    document.body.removeChild(el); showToast('網址已複製 ✓');
+  }
+}
+
+// ══════════════════════════════════════════
+//  BOOT
+// ══════════════════════════════════════════
+initApp();
+</script>
+</body>
+</html>
